@@ -24,6 +24,8 @@ class AgentState:
     # マルチエージェント用
     agent_role: str = "worker"                  # orchestrator / researcher / developer / critic / worker
     parent_session_id: Optional[str] = None     # オーケストレーターのセッション ID
+    # AGI 拡張
+    suggested_next_goal: Optional[str] = None   # メタ認知が提案する次のゴール
 
     def summary(self) -> str:
         return (

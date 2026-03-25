@@ -1,7 +1,7 @@
 """マルチエージェント オーケストレーター。
 
 使い方:
-    from hermes_agent2 import AgentOrchestrator, MistralClient
+    from hermes_agi import AgentOrchestrator, MistralClient
 
     llm = MistralClient(model="mistral")          # Ollama ローカル
     # llm = MistralClient(model="mistral-small-latest")  # Mistral API (要 MISTRAL_API_KEY)

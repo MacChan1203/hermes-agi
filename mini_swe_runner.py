@@ -6,7 +6,7 @@ import argparse
 import json
 from pathlib import Path
 
-from hermes_agent2.minisweagent_path import ensure_minisweagent_on_path
+from hermes_agi.minisweagent_path import ensure_minisweagent_on_path
 
 ensure_minisweagent_on_path(Path(__file__).resolve().parent)
 

@@ -1,4 +1,4 @@
-# hermes-agent2
+# hermes-agi
 
 Hermes Agent の既存設計を踏まえつつ、v9 の **Plan → Act → Review** を中核にして再構成した軽量版です。
 
@@ -27,7 +27,7 @@ Hermes Agent の既存設計を踏まえつつ、v9 の **Plan → Act → Revie
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-python run_agent.py --query "Hermes Agent 2 の状態を見てください"
+python run_agent.py --query "Hermes AGI の状態を見てください"
 ```
 
 ## CLI
@@ -41,15 +41,15 @@ python cli.py --query "このプロジェクトの次の改善案を出してく
 
 | ファイル | 役割 |
 |---|---|
-| `hermes_agent2/agent_runner.py` | v9 コアループ (Plan → Act → Review) |
-| `hermes_agent2/orchestrator.py` | マルチエージェント オーケストレーター |
-| `hermes_agent2/mistral_client.py` | LLM クライアント (Mistral / Groq / Ollama) |
-| `hermes_agent2/code_agents.py` | コード生成・レビュー専用エージェント |
-| `hermes_agent2/agent_message.py` | エージェント間メッセージ型 |
-| `hermes_agent2/state_store.py` | SQLite セッション保存 |
-| `hermes_agent2/planner.py` | 動的 plan |
-| `hermes_agent2/executor.py` | shell ベース観測 |
-| `hermes_agent2/reviewer.py` | review と recovery |
+| `hermes_agi/agent_runner.py` | v9 コアループ (Plan → Act → Review) |
+| `hermes_agi/orchestrator.py` | マルチエージェント オーケストレーター |
+| `hermes_agi/mistral_client.py` | LLM クライアント (Mistral / Groq / Ollama) |
+| `hermes_agi/code_agents.py` | コード生成・レビュー専用エージェント |
+| `hermes_agi/agent_message.py` | エージェント間メッセージ型 |
+| `hermes_agi/state_store.py` | SQLite セッション保存 |
+| `hermes_agi/planner.py` | 動的 plan |
+| `hermes_agi/executor.py` | shell ベース観測 |
+| `hermes_agi/reviewer.py` | review と recovery |
 | `cli.py` | インタラクティブ TUI |
 
 ## LLM プロバイダー
@@ -91,7 +91,7 @@ python cli.py
 `AgentOrchestrator` は目標を複数のサブタスクに分解し、ロール別のワーカーエージェントに委任して結果を統合します。
 
 ```python
-from hermes_agent2 import AgentOrchestrator, MistralClient
+from hermes_agi import AgentOrchestrator, MistralClient
 
 llm = MistralClient()  # 環境変数で自動選択
 orch = AgentOrchestrator(llm=llm)

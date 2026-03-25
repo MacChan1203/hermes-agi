@@ -1,4 +1,4 @@
-"""Hermes Agent 2 の toolset 定義。旧 Hermes の考え方を保ちつつ簡潔化。"""
+"""Hermes AGI の toolset 定義。旧 Hermes の考え方を保ちつつ簡潔化。"""
 from __future__ import annotations
 
 from typing import Dict, List, Set

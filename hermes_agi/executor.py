@@ -33,32 +33,32 @@ class Executor:
             )
         elif step == "Read main entry point":
             cmd = (
-                'for f in run_agent.py main.py agent_runner.py cli.py hermes_agent2/agent_runner.py; do '
+                'for f in run_agent.py main.py agent_runner.py cli.py hermes_agi/agent_runner.py; do '
                 'if [ -f "$f" ]; then echo "\\n===== $f ====="; sed -n "1,240p" "$f"; fi; '
                 "done"
             )
         elif step == "Inspect CLI entry point":
             cmd = (
-                'for f in cli.py hermes_agent2/cli.py; do '
+                'for f in cli.py hermes_agi/cli.py; do '
                 'if [ -f "$f" ]; then echo "\\n===== $f ====="; sed -n "1,220p" "$f"; fi; '
                 "done"
             )
         elif step == "Inspect tests":
             cmd = 'if [ -d tests ]; then find tests -maxdepth 2 | sort | head -120; else echo "tests directory not found"; fi'
         elif step == "Inspect state store":
-            cmd = 'if [ -f hermes_agent2/state_store.py ]; then sed -n "1,260p" hermes_agent2/state_store.py; else echo "state_store.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/state_store.py ]; then sed -n "1,260p" hermes_agi/state_store.py; else echo "state_store.py not found"; fi'
         elif step == "Inspect toolsets":
-            cmd = 'if [ -f hermes_agent2/toolsets.py ]; then sed -n "1,260p" hermes_agent2/toolsets.py; else echo "toolsets.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/toolsets.py ]; then sed -n "1,260p" hermes_agi/toolsets.py; else echo "toolsets.py not found"; fi'
         elif step == "Inspect tool distributions":
-            cmd = 'if [ -f hermes_agent2/toolset_distributions.py ]; then sed -n "1,260p" hermes_agent2/toolset_distributions.py; else echo "toolset_distributions.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/toolset_distributions.py ]; then sed -n "1,260p" hermes_agi/toolset_distributions.py; else echo "toolset_distributions.py not found"; fi'
         elif step == "Inspect model tools":
-            cmd = 'if [ -f hermes_agent2/model_tools.py ]; then sed -n "1,260p" hermes_agent2/model_tools.py; else echo "model_tools.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/model_tools.py ]; then sed -n "1,260p" hermes_agi/model_tools.py; else echo "model_tools.py not found"; fi'
         elif step == "Inspect time handling":
-            cmd = 'if [ -f hermes_agent2/hermes_time.py ]; then sed -n "1,240p" hermes_agent2/hermes_time.py; else echo "hermes_time.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/hermes_time.py ]; then sed -n "1,240p" hermes_agi/hermes_time.py; else echo "hermes_time.py not found"; fi'
         elif step == "Inspect constants":
-            cmd = 'if [ -f hermes_agent2/hermes_constants.py ]; then sed -n "1,220p" hermes_agent2/hermes_constants.py; else echo "hermes_constants.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/hermes_constants.py ]; then sed -n "1,220p" hermes_agi/hermes_constants.py; else echo "hermes_constants.py not found"; fi'
         elif step == "Inspect mini-swe-agent path support":
-            cmd = 'if [ -f hermes_agent2/minisweagent_path.py ]; then sed -n "1,240p" hermes_agent2/minisweagent_path.py; else echo "minisweagent_path.py not found"; fi'
+            cmd = 'if [ -f hermes_agi/minisweagent_path.py ]; then sed -n "1,240p" hermes_agi/minisweagent_path.py; else echo "minisweagent_path.py not found"; fi'
         elif step == "Summarize findings and propose next upgrade":
             return {
                 "ok": True,

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Hermes Agent 2 の簡易バッチ実行。"""
+"""Hermes AGI の簡易バッチ実行。"""
 from __future__ import annotations
 
 import argparse
@@ -8,7 +8,7 @@ from datetime import datetime
 from pathlib import Path
 
 from run_agent import AIAgent
-from hermes_agent2.toolset_distributions import sample_toolsets_from_distribution, validate_distribution
+from hermes_agi.toolset_distributions import sample_toolsets_from_distribution, validate_distribution
 
 
 def main(dataset_file: str, output_file: str = "batch_results.jsonl", run_name: str = "run", distribution: str = "development", max_iterations: int = 6):

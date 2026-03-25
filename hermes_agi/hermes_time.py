@@ -1,4 +1,4 @@
-"""Hermes Agent 2 用のタイムゾーン対応時計。"""
+"""Hermes AGI 用のタイムゾーン対応時計。"""
 from __future__ import annotations
 
 import logging

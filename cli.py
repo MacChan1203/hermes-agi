@@ -13,9 +13,9 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-from hermes_agent2.code_agents import CodeGeneratorAgent, CodeReviewerAgent
-from hermes_agent2.mistral_client import MistralClient
-from hermes_agent2.state_store import SessionDB
+from hermes_agi.code_agents import CodeGeneratorAgent, CodeReviewerAgent
+from hermes_agi.mistral_client import MistralClient
+from hermes_agi.state_store import SessionDB
 
 console = Console()
 

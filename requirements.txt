@@ -1,4 +1,4 @@
-# Hermes Agent 2
+# Hermes AGI
 fire
 pyyaml
 requests

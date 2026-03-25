@@ -1,4 +1,4 @@
-"""Hermes Agent 2 共有定数。"""
+"""Hermes AGI 共有定数。"""
 
 # Mistral / Ollama
 OLLAMA_BASE_URL = "http://127.0.0.1:11434/v1"

@@ -1,4 +1,5 @@
 .Hermes2/
+.Hermes-AGI/
 __pycache__/
 *.pyc
 .env

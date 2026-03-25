@@ -1,4 +1,4 @@
-from hermes_agent2.errors import classify_error
+from hermes_agi.errors import classify_error
 
 
 def test_classify_missing_command():

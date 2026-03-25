@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Hermes Agent 2 の最小ランナー。出力はできるだけ日本語。"""
+"""Hermes AGI の最小ランナー。出力はできるだけ日本語。"""
 from __future__ import annotations
 
 from pathlib import Path
 import argparse
 
-from hermes_agent2 import HermesAgentV9
+from hermes_agi import HermesAgentV9
 
 
 class AIAgent(HermesAgentV9):
@@ -20,8 +20,8 @@ class AIAgent(HermesAgentV9):
         }
 
 
-def main(query: str = "Hermes Agent 2 の状態を見て、次の改善案を提案してください。", repo_root: str = ".", model: str = "local/mock-model", max_turns: int = 8):
-    print("🤖 Hermes Agent 2")
+def main(query: str = "Hermes AGI の状態を見て、次の改善案を提案してください。", repo_root: str = ".", model: str = "local/mock-model", max_turns: int = 8):
+    print("🤖 Hermes AGI")
     print("=" * 50)
     agent = AIAgent(repo_root=Path(repo_root), model=model, max_iterations=max_turns)
     result = agent.run_conversation(query)
@@ -30,7 +30,7 @@ def main(query: str = "Hermes Agent 2 の状態を見て、次の改善案を提
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--query', default="Hermes Agent 2 の状態を見て、次の改善案を提案してください。")
+    parser.add_argument('--query', default="Hermes AGI の状態を見て、次の改善案を提案してください。")
     parser.add_argument('--repo_root', default='.')
     parser.add_argument('--model', default='local/mock-model')
     parser.add_argument('--max_turns', type=int, default=8)

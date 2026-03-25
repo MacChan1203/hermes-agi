@@ -36,6 +36,12 @@ _SYSTEM_TEMPLATE = """\
 失敗済みのステップ一覧: {failed}
 → 上記と同じコマンドは絶対に出力しない。別のアプローチを取る。
 
+【長期記憶 (過去のセッションで学んだこと)】
+{long_term_memories}
+
+【既知の失敗パターン (避けること)】
+{known_failures}
+
 次に実行すべき「単一のステップ」のみを返してください。
 形式のルール:
 - シェルコマンドは必ず「CMD: 」プレフィックスを付けて1行で書く
@@ -82,6 +88,25 @@ class Planner:
         if state.current_plan:
             return state.current_plan.pop(0)
 
+        # 長期記憶をプロンプトに注入
+        ltm_strategies = state.working_memory.get("ltm_strategies", [])
+        ltm_failures = state.working_memory.get("ltm_known_failures", [])
+
+        if ltm_strategies:
+            ltm_mem_text = "\n".join(
+                f"- [{s['outcome']}] {s['strategy']}" for s in ltm_strategies[:3]
+            )
+        else:
+            ltm_mem_text = "なし"
+
+        if ltm_failures:
+            ltm_fail_text = "\n".join(
+                f"- {f['command_pattern'][:60]} ({f['error_type']}, {f['count']}回失敗)"
+                for f in ltm_failures[:5]
+            )
+        else:
+            ltm_fail_text = "なし"
+
         prompt = _SYSTEM_TEMPLATE.format(
             role=self.role,
             goal=state.user_goal,
@@ -89,6 +114,8 @@ class Planner:
             failed=", ".join(state.failed_steps[-3:]) or "なし",
             observations="; ".join(state.observations[-3:]) or "なし",
             constraints=", ".join(state.constraints) or "なし",
+            long_term_memories=ltm_mem_text,
+            known_failures=ltm_fail_text,
         )
         assert self.llm is not None
         response = self.llm.chat(

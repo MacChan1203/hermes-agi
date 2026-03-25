@@ -6,7 +6,9 @@ from typing import Any, Dict, List, Optional
 
 from .agent_state import AgentState
 from .executor import Executor
+from .long_term_memory import LongTermMemory
 from .memory import initialize_working_memory
+from .meta_cognition import MetaCognition
 from .mistral_client import MistralClient
 from .planner import Planner
 from .reviewer import Reviewer
@@ -15,10 +17,11 @@ from .state_store import load_latest_run_summary, save_run_summary
 
 
 class HermesAgentV9:
-    """旧 Hermes の運用感と v9 の plan-act-review を合わせた軽量版。
+    """旧 Hermes の運用感と v9 の plan-act-review を合わせた軽量 AGI 版。
 
     llm を渡すと Planner/Reviewer が Mistral (または Ollama) を使う LLM モードで動作する。
     llm=None の場合は静的ルールによる従来モードで動作する。
+    長期記憶とメタ認知により、セッションをまたいで経験を蓄積し自律的に改善する。
     """
 
     def __init__(
@@ -31,6 +34,7 @@ class HermesAgentV9:
         llm: MistralClient | None = None,
         agent_role: str = "worker",
         system_prompt: str | None = None,
+        ltm: LongTermMemory | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.model = model
@@ -43,7 +47,8 @@ class HermesAgentV9:
         self.planner = Planner(llm=llm, role=agent_role)
         self.executor = Executor(self.repo_root)
         self.reviewer = Reviewer(llm=llm, role=agent_role)
-
+        self.ltm = ltm or LongTermMemory()
+        self.meta = MetaCognition()
 
     def run(self, state: AgentState) -> AgentState:
         initialize_working_memory(state)
@@ -57,9 +62,16 @@ class HermesAgentV9:
 
         state.working_memory["session_id"] = state.session_id
 
+        # 前回セッションの総括を読み込む
         latest_summary = load_latest_run_summary(self.repo_root)
         if latest_summary:
             state.working_memory["latest_run_summary"] = latest_summary
+
+        # --- 長期記憶をワーキングメモリに注入 ---
+        state.working_memory["ltm_strategies"] = self.ltm.recall_strategies(
+            state.user_goal, limit=5
+        )
+        state.working_memory["ltm_known_failures"] = self.ltm.get_known_failures(limit=10)
 
         self.session_db.create_session(
             state.session_id,
@@ -71,6 +83,15 @@ class HermesAgentV9:
 
         while not state.is_done and state.iteration_count < state.max_iterations:
             state.iteration_count += 1
+
+            # --- メタ認知: 行き詰まり検出 ---
+            if self.meta.is_stuck(state):
+                pivot = self.meta.suggest_pivot(state, self.ltm)
+                if pivot:
+                    print(f"  [メタ認知] 行き詰まりを検出 → 戦略転換: {pivot[:60]}", flush=True)
+                    state.current_plan.insert(0, pivot)
+                    state.observations.append(f"[メタ認知] 行き詰まりを検出。戦略を転換します。")
+
             step = self.planner.next_step(state, self.repo_root)
             if not step:
                 state.is_done = True
@@ -82,16 +103,21 @@ class HermesAgentV9:
             self.session_db.append_message(state.session_id, "assistant", f"次の一手: {step}")
             result = self.executor.execute(step, state)
 
-
             review = self.reviewer.evaluate(step, result, state)
 
             state.observations.append(review["summary"])
             state.last_status = review["status"]
-
             state.working_memory["last_improvement_hints"] = review.get("improvement_hints", [])
 
             if review.get("priority_upgrades"):
                 state.working_memory["priority_upgrades"] = review["priority_upgrades"]
+                # 優先改善案を長期記憶に保存
+                for i, upgrade in enumerate(review["priority_upgrades"]):
+                    self.ltm.learn(
+                        f"priority_upgrade_{state.session_id}_{i}",
+                        upgrade,
+                        session_id=state.session_id,
+                    )
 
             if review.get("goal_achieved", False):
                 summary_text = review.get("summary", "")
@@ -104,23 +130,36 @@ class HermesAgentV9:
                     priority_upgrades=priority_upgrades,
                 )
 
-
-            self.session_db.append_message(state.session_id, "tool", result.get("stdout", "") or result.get("stderr", ""), tool_name="terminal")
+            self.session_db.append_message(
+                state.session_id,
+                "tool",
+                result.get("stdout", "") or result.get("stderr", ""),
+                tool_name="terminal",
+            )
             self.session_db.append_message(state.session_id, "assistant", review["summary"])
 
             if review["status"] == "success":
                 state.completed_steps.append(step)
+                # 成功した戦略を長期記憶に記録
+                self.ltm.log_strategy(
+                    state.user_goal, step, "success", session_id=state.session_id
+                )
             else:
                 state.failed_steps.append(step)
+                # 失敗パターンを長期記憶に記録
+                error_type = review.get("error_type", "unknown")
+                self.ltm.log_failure(step, error_type, session_id=state.session_id)
+                self.ltm.log_strategy(
+                    state.user_goal, step, "failed", session_id=state.session_id
+                )
+
                 recovery_action = review.get("recovery_action")
                 if recovery_action:
                     state.current_plan.insert(0, recovery_action)
 
-                # 同じステップが2回以上失敗したら諦めて終了
                 if state.failed_steps.count(step) >= 2:
                     state.observations.append(f"[中断] {step} が繰り返し失敗したため終了します")
                     state.is_done = True
-                # 直近3ステップがすべて失敗なら無限ループとみなして終了
                 elif len(state.failed_steps) >= 3 and len(state.completed_steps) == 0:
                     state.observations.append("[中断] 連続失敗が続いたため終了します")
                     state.is_done = True
@@ -128,7 +167,15 @@ class HermesAgentV9:
             if review.get("goal_achieved", False):
                 state.is_done = True
 
+        # --- セッション終了処理 ---
         self.session_db.end_session(state.session_id, "completed" if state.is_done else "stopped")
+
+        # メタ認知: 次ゴールの自律提案
+        next_goal = self.meta.generate_next_goal(state, self.ltm)
+        if next_goal:
+            state.suggested_next_goal = next_goal
+            state.working_memory["suggested_next_goal"] = next_goal
+
         return state
 
     def chat(self, message: str) -> str:
@@ -143,7 +190,7 @@ class HermesAgentV9:
 
     def render_progress(self, state: AgentState) -> str:
         lines: List[str] = []
-        lines.append("=== Hermes Agent 2 / v9 進捗 ===")
+        lines.append("=== Hermes AGI 進捗 ===")
         lines.append(f"目的: {state.user_goal}")
         lines.append(f"反復回数: {state.iteration_count}/{state.max_iterations}")
         lines.append(f"最後のステップ: {state.last_step}")
@@ -167,21 +214,17 @@ class HermesAgentV9:
         lines.append("")
         lines.append("[直近の改善ヒント]")
         hints = state.working_memory.get("last_improvement_hints", [])
-        if hints:
-            for hint in hints:
-                lines.append(f"- {hint}")
-        else:
-            lines.append("- なし")
-
+        lines.extend([f"- {h}" for h in hints] or ["- なし"])
         lines.append("")
         lines.append("[優先改善案]")
         upgrades = state.working_memory.get("priority_upgrades", [])
-        if upgrades:
-            for upgrade in upgrades:
-                lines.append(f"- {upgrade}")
-        else:
-            lines.append("- なし")
-
+        lines.extend([f"- {u}" for u in upgrades] or ["- なし"])
+        lines.append("")
+        lines.append("[メタ認知レポート]")
+        lines.append(self.meta.reflection_summary(state))
+        lines.append("")
+        lines.append("[次の推奨ゴール]")
+        lines.append(f"- {state.suggested_next_goal or 'なし'}")
         lines.append("")
         lines.append("[前回の総括]")
         latest = state.working_memory.get("latest_run_summary")

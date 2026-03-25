@@ -1,4 +1,4 @@
-from hermes_agent2 import AgentState, HermesAgentV9
+from hermes_agi import AgentState, HermesAgentV9
 
 
 def test_agent_runs(tmp_path):

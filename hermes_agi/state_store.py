@@ -114,7 +114,7 @@ class SessionDB:
 
 def _agent2_db_path(repo_root: str | Path) -> Path:
     repo_root = Path(repo_root)
-    return repo_root / ".hermes_agent2_state.db"
+    return repo_root / ".hermes_agi_state.db"
 
 
 def _ensure_agent2_summary_table(conn: sqlite3.Connection) -> None:
