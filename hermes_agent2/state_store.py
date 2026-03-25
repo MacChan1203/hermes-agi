@@ -109,3 +109,90 @@ class SessionDB:
             (query, limit),
         )
         return [dict(row) for row in cur.fetchall()]
+
+
+
+def _agent2_db_path(repo_root: str | Path) -> Path:
+    repo_root = Path(repo_root)
+    return repo_root / ".hermes_agent2_state.db"
+
+
+def _ensure_agent2_summary_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS run_summaries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            session_id TEXT,
+            goal TEXT,
+            summary TEXT,
+            priority_upgrades_json TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+    conn.commit()
+
+
+def save_run_summary(
+    repo_root: str | Path,
+    *,
+    session_id: str,
+    goal: str,
+    summary: str,
+    priority_upgrades: list[str] | None = None,
+) -> None:
+    db_path = _agent2_db_path(repo_root)
+    conn = sqlite3.connect(db_path)
+    try:
+        _ensure_agent2_summary_table(conn)
+        conn.execute(
+            """
+            INSERT INTO run_summaries (
+                session_id,
+                goal,
+                summary,
+                priority_upgrades_json
+            ) VALUES (?, ?, ?, ?)
+            """,
+            (
+                session_id,
+                goal,
+                summary,
+                json.dumps(priority_upgrades or [], ensure_ascii=False),
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def load_latest_run_summary(repo_root: str | Path) -> dict[str, Any] | None:
+    db_path = _agent2_db_path(repo_root)
+    if not db_path.exists():
+        return None
+
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        _ensure_agent2_summary_table(conn)
+        row = conn.execute(
+            """
+            SELECT session_id, goal, summary, priority_upgrades_json, created_at
+            FROM run_summaries
+            ORDER BY id DESC
+            LIMIT 1
+            """
+        ).fetchone()
+
+        if row is None:
+            return None
+
+        return {
+            "session_id": row["session_id"],
+            "goal": row["goal"],
+            "summary": row["summary"],
+            "priority_upgrades": json.loads(row["priority_upgrades_json"] or "[]"),
+            "created_at": row["created_at"],
+        }
+    finally:
+        conn.close()

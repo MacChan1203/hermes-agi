@@ -73,6 +73,9 @@ class Executor:
             cmd = "pwd && ls -la"
         elif step == "Check Python environment and pip packages":
             cmd = f'{python_bin} --version && {python_bin} -m pip list | head -60'
+        elif step.startswith("CMD:"):
+            # LLM プランナーが生成した任意のシェルコマンド (最初の行のみ使用)
+            cmd = step[len("CMD:"):].strip().splitlines()[0].strip()
         else:
             return {
                 "ok": False,

@@ -7,13 +7,19 @@ from typing import Any, Dict, List, Optional
 from .agent_state import AgentState
 from .executor import Executor
 from .memory import initialize_working_memory
+from .mistral_client import MistralClient
 from .planner import Planner
 from .reviewer import Reviewer
 from .state_store import SessionDB
+from .state_store import load_latest_run_summary, save_run_summary
 
 
 class HermesAgentV9:
-    """旧 Hermes の運用感と v9 の plan-act-review を合わせた軽量版。"""
+    """旧 Hermes の運用感と v9 の plan-act-review を合わせた軽量版。
+
+    llm を渡すと Planner/Reviewer が Mistral (または Ollama) を使う LLM モードで動作する。
+    llm=None の場合は静的ルールによる従来モードで動作する。
+    """
 
     def __init__(
         self,
@@ -22,22 +28,45 @@ class HermesAgentV9:
         max_iterations: int = 8,
         session_db: SessionDB | None = None,
         source: str = "cli",
+        llm: MistralClient | None = None,
+        agent_role: str = "worker",
+        system_prompt: str | None = None,
     ) -> None:
         self.repo_root = Path(repo_root).resolve()
         self.model = model
         self.max_iterations = max_iterations
         self.session_db = session_db or SessionDB()
         self.source = source
-        self.planner = Planner()
+        self.llm = llm
+        self.agent_role = agent_role
+        self.system_prompt = system_prompt
+        self.planner = Planner(llm=llm, role=agent_role)
         self.executor = Executor(self.repo_root)
-        self.reviewer = Reviewer()
+        self.reviewer = Reviewer(llm=llm, role=agent_role)
+
 
     def run(self, state: AgentState) -> AgentState:
         initialize_working_memory(state)
+
         state.max_iterations = state.max_iterations or self.max_iterations
+        if state.agent_role == "worker":
+            state.agent_role = self.agent_role
+
         if not state.session_id:
             state.session_id = str(uuid.uuid4())
-        self.session_db.create_session(state.session_id, source=self.source, model=self.model, title=state.user_goal)
+
+        state.working_memory["session_id"] = state.session_id
+
+        latest_summary = load_latest_run_summary(self.repo_root)
+        if latest_summary:
+            state.working_memory["latest_run_summary"] = latest_summary
+
+        self.session_db.create_session(
+            state.session_id,
+            source=self.source,
+            model=self.model,
+            title=state.user_goal,
+        )
         self.session_db.append_message(state.session_id, "user", state.user_goal)
 
         while not state.is_done and state.iteration_count < state.max_iterations:
@@ -49,6 +78,7 @@ class HermesAgentV9:
                 break
 
             state.last_step = step
+            print(f"  [{state.iteration_count}/{state.max_iterations}] {step[:80]}", flush=True)
             self.session_db.append_message(state.session_id, "assistant", f"次の一手: {step}")
             result = self.executor.execute(step, state)
 
@@ -63,6 +93,17 @@ class HermesAgentV9:
             if review.get("priority_upgrades"):
                 state.working_memory["priority_upgrades"] = review["priority_upgrades"]
 
+            if review.get("goal_achieved", False):
+                summary_text = review.get("summary", "")
+                priority_upgrades = review.get("priority_upgrades", [])
+                save_run_summary(
+                    self.repo_root,
+                    session_id=state.session_id,
+                    goal=state.user_goal,
+                    summary=summary_text,
+                    priority_upgrades=priority_upgrades,
+                )
+
 
             self.session_db.append_message(state.session_id, "tool", result.get("stdout", "") or result.get("stderr", ""), tool_name="terminal")
             self.session_db.append_message(state.session_id, "assistant", review["summary"])
@@ -74,6 +115,15 @@ class HermesAgentV9:
                 recovery_action = review.get("recovery_action")
                 if recovery_action:
                     state.current_plan.insert(0, recovery_action)
+
+                # 同じステップが2回以上失敗したら諦めて終了
+                if state.failed_steps.count(step) >= 2:
+                    state.observations.append(f"[中断] {step} が繰り返し失敗したため終了します")
+                    state.is_done = True
+                # 直近3ステップがすべて失敗なら無限ループとみなして終了
+                elif len(state.failed_steps) >= 3 and len(state.completed_steps) == 0:
+                    state.observations.append("[中断] 連続失敗が続いたため終了します")
+                    state.is_done = True
 
             if review.get("goal_achieved", False):
                 state.is_done = True
@@ -129,6 +179,21 @@ class HermesAgentV9:
         if upgrades:
             for upgrade in upgrades:
                 lines.append(f"- {upgrade}")
+        else:
+            lines.append("- なし")
+
+        lines.append("")
+        lines.append("[前回の総括]")
+        latest = state.working_memory.get("latest_run_summary")
+        if latest:
+            lines.append(f"- session_id: {latest.get('session_id')}")
+            lines.append(f"- created_at: {latest.get('created_at')}")
+            lines.append(f"- summary: {latest.get('summary')}")
+            prev_upgrades = latest.get("priority_upgrades", [])
+            if prev_upgrades:
+                lines.append("- 前回の優先改善案:")
+                for item in prev_upgrades:
+                    lines.append(f"  - {item}")
         else:
             lines.append("- なし")
 

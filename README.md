@@ -39,11 +39,73 @@ python cli.py --query "このプロジェクトの次の改善案を出してく
 
 ## 主要ファイル
 
-- `hermes_agent2/agent_runner.py` : v9 の本体
-- `hermes_agent2/state_store.py` : SQLite セッション保存
-- `hermes_agent2/planner.py` : 動的 plan
-- `hermes_agent2/executor.py` : shell ベース観測
-- `hermes_agent2/reviewer.py` : review と recovery
+| ファイル | 役割 |
+|---|---|
+| `hermes_agent2/agent_runner.py` | v9 コアループ (Plan → Act → Review) |
+| `hermes_agent2/orchestrator.py` | マルチエージェント オーケストレーター |
+| `hermes_agent2/mistral_client.py` | LLM クライアント (Mistral / Groq / Ollama) |
+| `hermes_agent2/code_agents.py` | コード生成・レビュー専用エージェント |
+| `hermes_agent2/agent_message.py` | エージェント間メッセージ型 |
+| `hermes_agent2/state_store.py` | SQLite セッション保存 |
+| `hermes_agent2/planner.py` | 動的 plan |
+| `hermes_agent2/executor.py` | shell ベース観測 |
+| `hermes_agent2/reviewer.py` | review と recovery |
+| `cli.py` | インタラクティブ TUI |
+
+## LLM プロバイダー
+
+`MistralClient` は以下の優先順で自動選択します：
+
+| 優先順 | 環境変数 | バックエンド | デフォルトモデル |
+|---|---|---|---|
+| 1 | `MISTRAL_API_KEY` | Mistral API | `mistral-small-latest` |
+| 2 | `GROQ_API_KEY` | Groq | `llama-3.3-70b-versatile` |
+| 3 | なし | Ollama (ローカル) | `mistral` |
+
+`.env` ファイルにキーを書いておくか、環境変数を設定するだけで切り替わります。
+
+```bash
+# Mistral API を使う場合
+echo "MISTRAL_API_KEY=sk-..." > .env
+
+# Groq を使う場合
+echo "GROQ_API_KEY=gsk_..." > .env
+```
+
+## インタラクティブ CLI
+
+```bash
+python cli.py
+```
+
+| コマンド | 説明 |
+|---|---|
+| `/generate <説明>` | 自然言語からコードを生成 |
+| `/review` | コードを貼り付けてレビュー |
+| `/provider` | 現在の LLM プロバイダーを表示 |
+| `/help` | コマンド一覧 |
+| `/quit` | 終了 |
+
+## マルチエージェント オーケストレーション
+
+`AgentOrchestrator` は目標を複数のサブタスクに分解し、ロール別のワーカーエージェントに委任して結果を統合します。
+
+```python
+from hermes_agent2 import AgentOrchestrator, MistralClient
+
+llm = MistralClient()  # 環境変数で自動選択
+orch = AgentOrchestrator(llm=llm)
+result = orch.run("このプロジェクトの構造を調べて改善案をまとめてください")
+print(result)
+```
+
+**ワーカーロール**
+
+| ロール | 担当 |
+|---|---|
+| `researcher` | ローカルファイル・コードの調査 |
+| `developer` | コード実行・ファイル操作 |
+| `critic` | 成果物の評価・改善提案 |
 
 ## 設計上の意見
 

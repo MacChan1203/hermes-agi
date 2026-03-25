@@ -21,6 +21,9 @@ class AgentState:
     last_step: Optional[str] = None
     last_status: Optional[str] = None
     session_id: Optional[str] = None
+    # マルチエージェント用
+    agent_role: str = "worker"                  # orchestrator / researcher / developer / critic / worker
+    parent_session_id: Optional[str] = None     # オーケストレーターのセッション ID
 
     def summary(self) -> str:
         return (
