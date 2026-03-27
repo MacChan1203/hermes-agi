@@ -1,4 +1,4 @@
-# Hermes AGI
+# Hermes AGI Gen
 fire
 pyyaml
 requests
